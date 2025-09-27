@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>oopfinds</title>
+    <style>
+      body{
+        font-family:'Segoe UI',sans-serif;
+        margin:0;
+        background:linear-gradient(135deg,#0d0d0d,#1a1a2e,#16213e);
+        color:#f0f0f0;
+      }
+      .wrap{max-width:1200px;margin:auto;padding:20px;display:flex;gap:20px;}
+      h1{color:#b61818;text-align:center;margin:20px 0;font-size:2.5em;}
+      h2{color:#cc131c;}
+      .sidebar{
+        width:220px;
+        background:rgba(255,255,255,0.05);
+        padding:15px;
+        border-radius:16px;
+        box-shadow:0 0 12px rgba(255,255,255,0.2);
+      }
+      .content{flex:1;}
+      .search-box{
+        display:flex;
+        justify-content:center;
+        margin-bottom:20px;
+        position:relative;
+      }
+      .search-box input{
+        width:60%;
+        padding:12px 16px;
+        border-radius:30px;
+        border:none;
+        font-size:1em;
+        background:linear-gradient(90deg,#c20c0c,#ac0f0f);
+        color:#0d0d0d;
+        font-weight:bold;
+      }
+      .search-suggestions{
+        position:absolute;
+        top:45px;
+        background:#1a1a1a;
+        border-radius:12px;
+        box-shadow:0 0 10px rgba(0,0,0,0.5);
+        width:60%;
+        max-height:200px;
+        overflow:auto;
+        z-index:100;
+      }
+      .search-suggestions div{
+        padding:8px 12px;
+        cursor:pointer;
+      }
+      .search-suggestions div:hover{background:#333;}
+      .grid{
+        display:grid;
+        grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+        gap:16px;
+      }
+      .card{
+        background:#1a1a1a;
+        padding:12px;
+        border-radius:16px;
+        box-shadow:0 0 10px rgba(151, 14, 14, 0.4);
+        cursor:pointer;
+        transition:transform 0.2s,box-shadow 0.2s;
+      }
+      .card:hover{
+        transform:scale(1.05);
+        box-shadow:0 0 20px rgba(182, 24, 24, 0.6);
+      }
+      .thumb{height:160px;background:#111;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden;}
+      .thumb img{max-height:100%;max-width:100%;border-radius:12px;}
+      input,select,textarea,button{margin:6px;padding:8px 10px;border-radius:8px;border:1px solid #333;background:#0d0d0d;color:#f0f0f0;}
+      input:focus,select:focus,textarea:focus{outline:none;border:1px solid #942121;box-shadow:0 0 6px #af1616;}
+      button{background:linear-gradient(90deg,#c21212,#c20e0e);border:none;color:#0d0d0d;font-weight:bold;cursor:pointer;transition:transform 0.2s;}
+      button:hover{transform:scale(1.05);}
+      .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;}
+      .modal-content{background:#1a1a1a;padding:20px;border-radius:16px;max-width:650px;width:90%;max-height:90%;overflow:auto;box-shadow:0 0 20px rgba(0,255,240,0.4);}
+      .modal-content img{max-width:100%;margin-bottom:12px;border-radius:12px;}
+      .form,.login-box{margin:10px 0;padding:15px;background:rgba(255,255,255,0.05);border-radius:16px;box-shadow:0 0 12px rgba(255,255,255,0.2);}
+    </style>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  </head>
+  <body>
+    <h1>oopfinds</h1>
+    <div id="root"></div>
+    <script type="text/babel">
+      const {useState,useEffect} = React;
+      function App(){
+        const STORAGE_KEY="ready_shop_colorful";
+        const ADMIN_PASS="admin123";
+        const [data,setData]=useState({products:[],types:["Alle","T-Shirt","Hose","Jacke"],brands:["Alle","Nike","Adidas"]});
+        const [form,setForm]=useState({title:"",price:"",description:"",type:"T-Shirt",brand:"Nike",images:[],buyLink:""});
+        const [editingId,setEditingId]=useState(null);
+        const [filterType,setFilterType]=useState("Alle");
+        const [filterBrand,setFilterBrand]=useState("Alle");
+        const [search,setSearch]=useState("");
+        const [modalProduct,setModalProduct]=useState(null);
+        const [isAdmin,setIsAdmin]=useState(false);
+        const [tryPass,setTryPass]=useState("");
+        const [suggestions,setSuggestions]=useState([]);
+
+        useEffect(()=>{
+          try{
+            const raw=localStorage.getItem(STORAGE_KEY);
+            if(raw){const parsed=JSON.parse(raw);
+              setData({products:parsed.products||[],types:["Alle",...(parsed.types||["T-Shirt","Hose","Jacke"])],brands:["Alle",...(parsed.brands||["Nike","Adidas"])]});
+            }
+          }catch(e){}
+        },[]);
+        useEffect(()=>{
+          localStorage.setItem(STORAGE_KEY,JSON.stringify({products:data.products,types:data.types.filter(t=>t!="Alle"),brands:data.brands.filter(b=>b!="Alle")}));
+        },[data]);
+
+        function resetForm(){setForm({title:"",price:"",description:"",type:data.types[1]||"T-Shirt",brand:data.brands[1]||"Nike",images:[],buyLink:""});setEditingId(null);}
+        function handleFiles(files){if(!files)return;Array.from(files).forEach(f=>{const reader=new FileReader();reader.onload=e=>setForm(prev=>({...prev,images:[...prev.images,e.target.result]}));reader.readAsDataURL(f);});}
+        function saveProduct(e){e.preventDefault();if(!form.title||!form.price)return alert("Bitte Titel und Preis");const prod={id:editingId||Date.now().toString(),...form,price:parseFloat(form.price)};if(editingId){setData(prev=>({...prev,products:prev.products.map(p=>p.id===editingId?prod:p)}));}else{setData(prev=>({...prev,products:[prod,...prev.products]}));}resetForm();}
+        function addType(n){if(n&&!data.types.includes(n))setData(prev=>({...prev,types:[...prev.types,n]}));}
+        function addBrand(n){if(n&&!data.brands.includes(n))setData(prev=>({...prev,brands:[...prev.brands,n]}));}
+
+        function updateSuggestions(val){
+          setSearch(val);
+          if(val.length>0){
+            const matches=data.products.filter(p=>p.title.toLowerCase().includes(val.toLowerCase()));
+            setSuggestions(matches.slice(0,5));
+          }else setSuggestions([]);
+        }
+
+        const visible=data.products.filter(p=>{
+          if(filterType!="Alle"&&p.type!==filterType)return false;
+          if(filterBrand!="Alle"&&p.brand!==filterBrand)return false;
+          if(search&&!p.title.toLowerCase().includes(search.toLowerCase()))return false;
+          return true;
+        });
+
+        return <div className="wrap">
+          <div className="sidebar">
+            <h2>Kategorien</h2>
+            <select value={filterType} onChange={e=>setFilterType(e.target.value)}>{data.types.map(t=><option key={t}>{t}</option>)}</select>
+            <h2>Marken</h2>
+            <select value={filterBrand} onChange={e=>setFilterBrand(e.target.value)}>{data.brands.map(b=><option key={b}>{b}</option>)}</select>
+            <button onClick={()=>{setSearch('');setFilterType('Alle');setFilterBrand('Alle')}}>Reset</button>
+            {!isAdmin && <div className="login-box"><h2>Admin</h2><input type="password" placeholder="Passwort" value={tryPass} onChange={e=>setTryPass(e.target.value)}/><button onClick={()=>{if(tryPass===ADMIN_PASS){setIsAdmin(true);setTryPass("");}else alert("Falsches Passwort");}}>Login</button></div>}
+          </div>
+          <div className="content">
+            <div className="search-box">
+              <input placeholder="🔍 Suche Produkte..." value={search} onChange={e=>updateSuggestions(e.target.value)}/>
+              {suggestions.length>0&&<div className="search-suggestions">{suggestions.map(s=><div key={s.id} onClick={()=>{setModalProduct(s);setSuggestions([]);}}>{s.title}</div>)}</div>}
+            </div>
+            {isAdmin && <div className="form"><h2>{editingId?"Bearbeiten":"Hinzufügen"}</h2>
+              <form onSubmit={saveProduct}>
+                <input placeholder="Titel" value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/>
+                <input type="number" placeholder="Preis" value={form.price} onChange={e=>setForm({...form,price:e.target.value})}/>
+                <textarea placeholder="Beschreibung" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}></textarea>
+                <select value={form.type} onChange={e=>setForm({...form,type:e.target.value})}>{data.types.map(t=><option key={t}>{t}</option>)}</select>
+                <select value={form.brand} onChange={e=>setForm({...form,brand:e.target.value})}>{data.brands.map(b=><option key={b}>{b}</option>)}</select>
+                <input type="file" accept="image/*" multiple onChange={e=>handleFiles(e.target.files)}/>
+                <input placeholder="Kauf-Link" value={form.buyLink} onChange={e=>setForm({...form,buyLink:e.target.value})}/>
+                <button type="submit">{editingId?"Speichern":"Hinzufügen"}</button>
+                <button type="button" onClick={resetForm}>Reset</button>
+              </form>
+              <div>
+                <input id="newType" placeholder="Neue Art"/><button onClick={()=>{const v=document.getElementById('newType').value;addType(v);document.getElementById('newType').value='';}}>+Art</button>
+                <input id="newBrand" placeholder="Neue Marke"/><button onClick={()=>{const v=document.getElementById('newBrand').value;addBrand(v);document.getElementById('newBrand').value='';}}>+Marke</button>
+              </div>
+            </div>}
+            <div className="grid">{visible.length===0?<div>Keine Produkte</div>:visible.map(p=><div key={p.id} className="card" onClick={()=>setModalProduct(p)}>
+              <div className="thumb">{p.images[0]?<img src={p.images[0]}/>:<div>Kein Bild</div>}</div>
+              <h3>{p.title}</h3><div>{p.type} • {p.brand}</div><div>€ {p.price.toFixed(2)}</div>
+            </div>)}</div>
+            {modalProduct&&<div className="modal" onClick={()=>setModalProduct(null)}>
+              <div className="modal-content" onClick={e=>e.stopPropagation()}>
+                <h2>{modalProduct.title}</h2>
+                <div>{modalProduct.type} • {modalProduct.brand} • € {modalProduct.price.toFixed(2)}</div>
+                {modalProduct.images.map((img,i)=><img key={i} src={img}/>)}
+                <p>{modalProduct.description}</p>
+                {modalProduct.buyLink&&<a href={modalProduct.buyLink} target="_blank"><button>Jetzt kaufen</button></a>}
+                <button onClick={()=>setModalProduct(null)}>Schließen</button>
+              </div>
+            </div>}
+          </div>
+        </div>;
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+    </script>
+  </body>
+</html>
